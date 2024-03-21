@@ -20,31 +20,54 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-apiVersion: my.api.group/v1alpha1
-kind: MyAppResource
-metadata:
-  name: whatever
-spec:
-  replicaCount: 2
-  resources:
-    memoryLimit: 64Mi
-    cpuRequest: 100m
-  image:
-    repository: ghcr.io/stefanprodan/podinfo
-    tag: latest
-  ui:
-    color: "#34577c"
-    message: "some string"
-  redis:
-    enabled: true
-
 // MyAppResourceSpec defines the desired state of MyAppResource
 type MyAppResourceSpec struct {
-	// ReplicaCount is the number of desired replicas of podinfo to launch.
-	ReplicaCount string `json:"replicaCount"`
+	// ReplicaCount is the number of desired replicas of myappresource to launch.
+	ReplicaCount int `json:"replicaCount"`
 
-	// ReplicaCount is the number of desired replicas of podinfo to launch.
-	Resources struct `json:""`
+	// ReplicaCount is the number of desired replicas of myappresource to launch.
+	Resources Resources `json:"resources,omitempty"`
+
+	// Specify the myappresource image to run.
+	Image Image `json:"image"`
+
+	// UI spec for User Interface options.
+	UI UI `json:"ui,omitempty"`
+
+	Redis Redis `json:"redis,omitempty"`
+}
+
+// UI spec for User Interface options.
+type UI struct {
+	// Color is the UI color desired.
+	// +optional
+	Color string `json:"color,omitempty"`
+
+	// Color is the UI color desired.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
+type Redis struct {
+	// Enable or disable redis usage.
+	Enabled bool `json:"enabled"`
+}
+
+type Resources struct {
+	// memoryLimit is the mem limit for a myappresource dpod.
+	// +optional
+	MemoryLimit string `json:"memoryLimit,omitempty"`
+
+	// memoryLimit is the mem limit for a myappresource dpod.
+	CPURequest string `json:"cpuRequest"`
+}
+
+type Image struct {
+	// Repository is the image to pull.
+	Repository string `json:"repository,omitempty"`
+
+	// Tag is the image version to pull
+	Tag string `json:"tag"`
 }
 
 // MyAppResourceStatus defines the observed state of MyAppResource

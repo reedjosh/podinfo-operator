@@ -39,10 +39,58 @@ spec:
           spec:
             description: MyAppResourceSpec defines the desired state of MyAppResource
             properties:
-              foo:
-                description: Foo is an example field of MyAppResource. Edit myappresource_types.go
-                  to remove/update
-                type: string
+              image:
+                description: Specify the myappresource image to run.
+                properties:
+                  repository:
+                    description: Repository is the image to pull.
+                    type: string
+                  tag:
+                    description: Tag is the image version to pull
+                    type: string
+                required:
+                - tag
+                type: object
+              redis:
+                properties:
+                  enabled:
+                    description: Enable or disable redis usage.
+                    type: boolean
+                required:
+                - enabled
+                type: object
+              replicaCount:
+                description: ReplicaCount is the number of desired replicas of myappresource
+                  to launch.
+                type: integer
+              resources:
+                description: ReplicaCount is the number of desired replicas of myappresource
+                  to launch.
+                properties:
+                  cpuRequest:
+                    description: memoryLimit is the mem limit for a myappresource
+                      dpod.
+                    type: string
+                  memoryLimit:
+                    description: memoryLimit is the mem limit for a myappresource
+                      dpod.
+                    type: string
+                required:
+                - cpuRequest
+                type: object
+              ui:
+                description: UI spec for User Interface options.
+                properties:
+                  color:
+                    description: Color is the UI color desired.
+                    type: string
+                  message:
+                    description: Color is the UI color desired.
+                    type: string
+                type: object
+            required:
+            - image
+            - replicaCount
             type: object
           status:
             description: MyAppResourceStatus defines the observed state of MyAppResource
