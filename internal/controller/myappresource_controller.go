@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"podinfo-operator.com/m/v2/api/v1alpha1"
 	podinfov1alpha1 "podinfo-operator.com/m/v2/api/v1alpha1"
 )
 
@@ -47,7 +48,17 @@ type MyAppResourceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.0/pkg/reconcile
 func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
+
+	var myApp v1alpha1.MyAppResource
+    if err := r.Get(ctx, req.NamespacedName, &myApp); err != nil {
+        log.Error(err, "unable to fetch myApp")
+        // Ignore not-found errors, since it can't be fixed by an immediate
+        // requeue (need to wait for a new notification)
+        return ctrl.Result{}, client.IgnoreNotFound(err)
+    }
+
+	log.V(1).Info("myApp resource found", "MyAppResource", myApp)
 
 	// TODO(user): your logic here
 
