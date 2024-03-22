@@ -19,12 +19,14 @@ package controller
 import (
 	"context"
 
+	kapps "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"podinfo-operator.com/m/v2/api/v1alpha1"
 	podinfov1alpha1 "podinfo-operator.com/m/v2/api/v1alpha1"
 )
 
@@ -34,9 +36,21 @@ type MyAppResourceReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// MyAppResources.
 //+kubebuilder:rbac:groups=podinfo.podinfo.com,resources=myappresources,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=podinfo.podinfo.com,resources=myappresources/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=podinfo.podinfo.com,resources=myappresources/finalizers,verbs=update
+
+// K8s Deployments.
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get
+
+// ConfigMaps.
+//+kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
+
+// Needed env vars.
+// PODINFO_UI_MESSAGE envs
+// PODINFO_UI_COLOR
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -44,25 +58,62 @@ type MyAppResourceReconciler struct {
 // the MyAppResource object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.0/pkg/reconcile
 func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	var myApp v1alpha1.MyAppResource
-    if err := r.Get(ctx, req.NamespacedName, &myApp); err != nil {
-        log.Error(err, "unable to fetch myApp")
-        // Ignore not-found errors, since it can't be fixed by an immediate
-        // requeue (need to wait for a new notification)
-        return ctrl.Result{}, client.IgnoreNotFound(err)
-    }
-
+	// Fetch basic resource.
+	var myApp podinfov1alpha1.MyAppResource
+	if err := r.Get(ctx, req.NamespacedName, &myApp); err != nil {
+		log.Error(err, "unable to fetch myApp")
+		// Ignore not-found errors, since it can't be fixed by an immediate
+		// requeue (need to wait for a new notification)
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 	log.V(1).Info("myApp resource found", "MyAppResource", myApp)
 
-	// TODO(user): your logic here
+	// if deletion timestamp.
+	if myApp.GetDeletionTimestamp() != nil { // Try to delete.
+		return r.reconcileDelete(ctx, req, myApp)
+	}
+	return r.reconcile(ctx, req, myApp)
+}
 
-	return ctrl.Result{}, nil
+// reconcile attempts to create or update a myApp resource to the desired spec.
+func (r *MyAppResourceReconciler) reconcile(
+	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
+) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+
+	// Fetch existing deployments if existing...
+	foundDeployment := &kapps.Deployment{}
+	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name, Namespace: myApp.Namespace}, foundDeployment)
+	if err != nil && errors.IsNotFound(err) {
+		log.V(1).Info("Creating Deployment", "deployment", myApp.Name)
+		err = r.Create(ctx, &myApp)
+	} else if err == nil {
+		if foundDeployment.Spec.Replicas != myApp.Spec.ReplicaCount {
+			foundDeployment.Spec.Replicas = myApp.Spec.ReplicaCount
+			log.V(1).Info("Updating Deployment", "deployment", myApp.Name)
+			err = r.Update(ctx, foundDeployment)
+		}
+	}
+	return ctrl.Result{}, err
+}
+
+// reconcileDelete attempts to delete a myApp resource with a deletion timestamp.
+func (r *MyAppResourceReconciler) reconcileDelete(
+	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
+) (ctrl.Result, error) {
+	_ = log.FromContext(ctx)
+
+	// Fetch existing deployments if existing...
+	foundDeployment := &kapps.Deployment{}
+	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name, Namespace: myApp.Namespace}, foundDeployment)
+	if err != nil && errors.IsNotFound(err) { // No object exists, so no action to take.
+		return ctrl.Result{}, nil
+	}
+	// Seems we've found a deployement so let's delete it.
+	return ctrl.Result{}, r.Delete(ctx, foundDeployment)
 }
 
 // SetupWithManager sets up the controller with the Manager.

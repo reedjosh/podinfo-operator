@@ -23,7 +23,7 @@ import (
 // MyAppResourceSpec defines the desired state of MyAppResource
 type MyAppResourceSpec struct {
 	// ReplicaCount is the number of desired replicas of myappresource to launch.
-	ReplicaCount int `json:"replicaCount"`
+	ReplicaCount *int32 `json:"replicaCount"`
 
 	// ReplicaCount is the number of desired replicas of myappresource to launch.
 	Resources Resources `json:"resources,omitempty"`
