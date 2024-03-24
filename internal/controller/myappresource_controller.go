@@ -9,7 +9,7 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+WITHOUT WARRANTIES OR  CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
@@ -19,8 +19,8 @@ package controller
 import (
 	"context"
 
-	kapps "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	k8serrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,7 +58,7 @@ type MyAppResourceReconciler struct {
 // the MyAppResource object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
-func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, retErr error) {
 	log := log.FromContext(ctx)
 
 	// Fetch basic resource.
@@ -78,24 +78,32 @@ func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return r.reconcile(ctx, req, myApp)
 }
 
-// reconcile attempts to create or update a myApp resource to the desired spec.
+// reconcile attempts to create or update a myApp resource per the desired spec.
 func (r *MyAppResourceReconciler) reconcile(
 	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
 ) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	// Fetch existing deployments if existing...
-	foundDeployment := &kapps.Deployment{}
+	// Fetch existing deployment...
+	foundDeployment := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name, Namespace: myApp.Namespace}, foundDeployment)
-	if err != nil && errors.IsNotFound(err) {
+
+	// Return if err and not just because the deployment wasn't found.
+	if err != nil && !k8serrs.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	// Deployment not found, create it.
+	if err != nil {
 		log.V(1).Info("Creating Deployment", "deployment", myApp.Name)
-		err = r.Create(ctx, &myApp)
-	} else if err == nil {
-		if foundDeployment.Spec.Replicas != myApp.Spec.ReplicaCount {
-			foundDeployment.Spec.Replicas = myApp.Spec.ReplicaCount
-			log.V(1).Info("Updating Deployment", "deployment", myApp.Name)
-			err = r.Update(ctx, foundDeployment)
-		}
+		return ctrl.Result{}, r.Create(ctx, myApp.AsDeployment())
+	}
+
+	// Deployment found. Check and potentially update it.
+	if foundDeployment.Spec.Replicas != myApp.Spec.ReplicaCount {
+		foundDeployment.Spec.Replicas = myApp.Spec.ReplicaCount
+		log.V(1).Info("Updating Deployment", "deployment", myApp.Name)
+		err = r.Update(ctx, foundDeployment)
 	}
 	return ctrl.Result{}, err
 }
@@ -104,15 +112,24 @@ func (r *MyAppResourceReconciler) reconcile(
 func (r *MyAppResourceReconciler) reconcileDelete(
 	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
 ) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
 	// Fetch existing deployments if existing...
-	foundDeployment := &kapps.Deployment{}
+	foundDeployment := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name, Namespace: myApp.Namespace}, foundDeployment)
-	if err != nil && errors.IsNotFound(err) { // No object exists, so no action to take.
+
+	// Return if err and not just because the deployment wasn't found.
+	if err != nil && !k8serrs.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	// Object didn't exist, so do nothing.
+	if err != nil {
 		return ctrl.Result{}, nil
 	}
-	// Seems we've found a deployement so let's delete it.
+
+	// Found matching deployment -- delete it.
+	log.V(1).Info("Deleting Deployment", "deployment", myApp.Name)
 	return ctrl.Result{}, r.Delete(ctx, foundDeployment)
 }
 

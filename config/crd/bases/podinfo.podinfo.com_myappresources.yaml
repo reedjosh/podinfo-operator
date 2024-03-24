@@ -62,22 +62,8 @@ spec:
               replicaCount:
                 description: ReplicaCount is the number of desired replicas of myappresource
                   to launch.
+                format: int32
                 type: integer
-              resources:
-                description: ReplicaCount is the number of desired replicas of myappresource
-                  to launch.
-                properties:
-                  cpuRequest:
-                    description: memoryLimit is the mem limit for a myappresource
-                      dpod.
-                    type: string
-                  memoryLimit:
-                    description: memoryLimit is the mem limit for a myappresource
-                      dpod.
-                    type: string
-                required:
-                - cpuRequest
-                type: object
               ui:
                 description: UI spec for User Interface options.
                 properties:
