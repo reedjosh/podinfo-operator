@@ -56,6 +56,28 @@ spec:
                   enabled:
                     description: Enable or disable redis usage.
                     type: boolean
+                  resources:
+                    description: The Redis resources spec.
+                    properties:
+                      cpuRequest:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: memoryLimit is the mem limit for a myappresource
+                          dpod.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      memoryLimit:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: memoryLimit is the mem limit for a myappresource
+                          dpod.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                    required:
+                    - cpuRequest
+                    type: object
                 required:
                 - enabled
                 type: object
@@ -64,6 +86,28 @@ spec:
                   to launch.
                 format: int32
                 type: integer
+              resources:
+                description: The podinfo deployment resources spec.
+                properties:
+                  cpuRequest:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: memoryLimit is the mem limit for a myappresource
+                      dpod.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  memoryLimit:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: memoryLimit is the mem limit for a myappresource
+                      dpod.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                required:
+                - cpuRequest
+                type: object
               ui:
                 description: UI spec for User Interface options.
                 properties:

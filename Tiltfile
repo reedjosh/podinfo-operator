@@ -28,9 +28,9 @@ docker_build(
 # Rebuild manifest and generate on updates.
 local_resource('generate', 
                cmd='make generate', 
-               deps=['./cmd/', './api/v1alpha1/podinfo_types.go'], 
+               deps=['./cmd/', './api/v1alpha1/myappresource_types.go'], 
                labels=["make"])
 local_resource('manifest', 
                cmd='make manifests', 
-               deps=['./cmd/', './api/v1alpha1/myappresource_types.go'], 
+               deps=['./cmd/', 'internal/', './api/v1alpha1/myappresource_types.go'], 
                labels=["make"])
