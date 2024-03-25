@@ -1,13 +1,23 @@
 # podinfo
-// TODO(user): Add simple overview of use/purpose
+Toy operator that deploys and controls the [podinfo](https://github.com/stefanprodan/podinfo) application.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+Just a practice Kubernetes Operator pattern built using `kubebuilder`.
+
+Operators today should not simply deploy a basic application as there are many other alternatives.
+
+For demonstration of a better method, I have self hosted an ArgoCD Application deployment of `podinfo`.
+
+One can login (`readonlyuser`/`readonlypass`) 
+[here](https://deploy.thereedfamily.rocks/applications/argocd/podinfo-system?view=tree&resource=)
+and see this same application deployed via ArgoCD pointing to [podinfo](https://github.com/stefanprodan/podinfo)'s own
+[helm chart](https://github.com/stefanprodan/podinfo/tree/master/charts/podinfo).
+
+The above application is deployed as an example on my home server, and the ArgoCD app in use can be see 
+[here](https://git.thereedfamily.rocks/jayr/podinfo-argo/src/branch/main/podinfo.yaml).
 
 ## Getting Started
-
-install etcd
-go mod tidy
 
 ### Prerequisites
 - go version v1.21.0+
