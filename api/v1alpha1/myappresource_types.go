@@ -101,7 +101,6 @@ func (myApp *MyAppResource) AsDeployment() *appsv1.Deployment {
 	return dep
 }
 
-
 // UI spec for User Interface options.
 type UI struct {
 	// Color is the UI color desired.
@@ -116,7 +115,7 @@ type UI struct {
 type Redis struct {
 	// Enable or disable redis usage.
 	Enabled bool `json:"enabled"`
-	
+
 	// The Redis resources spec.
 	Resources Resources `json:"resources,omitempty" protobuf:"bytes,8,opt,name=resources"`
 }

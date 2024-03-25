@@ -6,6 +6,9 @@
 
 ## Getting Started
 
+install etcd
+go mod tidy
+
 ### Prerequisites
 - go version v1.21.0+
 - docker version 17.03+.

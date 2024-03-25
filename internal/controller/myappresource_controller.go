@@ -22,8 +22,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -43,7 +43,7 @@ type MyAppResourceReconciler struct {
 func buildService(myApp podinfov1alpha1.MyAppResource) *corev1.Service {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: myApp.Name,
+			Name:      myApp.Name,
 			Namespace: "default",
 		},
 		Spec: corev1.ServiceSpec{
@@ -56,7 +56,6 @@ func buildService(myApp podinfov1alpha1.MyAppResource) *corev1.Service {
 	}
 	return svc
 }
-
 
 // MyAppResources.
 //+kubebuilder:rbac:groups=podinfo.podinfo.com,resources=myappresources,verbs=get;list;watch;create;update;patch;delete
@@ -72,7 +71,6 @@ func buildService(myApp podinfov1alpha1.MyAppResource) *corev1.Service {
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=services/status,verbs=get;update
 //+kubebuilder:rbac:groups="",resources=services/finalizers,verbs=update
-
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -111,13 +109,13 @@ func (r *MyAppResourceReconciler) reconcile(
 	// if res, err := r.createOrUpdateService(ctx, req, myApp); err != nil || res.Requeue {
 	// 	return res, err
 	// }
-	
+
 	return ctrl.Result{}, nil
 }
 
 func (r *MyAppResourceReconciler) createOrUpdateDeployment(
 	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
-) (ctrl.Result, error){
+) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
 	// Fetch existing deployment...
@@ -133,7 +131,7 @@ func (r *MyAppResourceReconciler) createOrUpdateDeployment(
 	if err != nil {
 		log.V(1).Info("Creating Deployment", "deployment", myApp.Name)
 		if err = r.Create(ctx, myApp.AsDeployment()); err != nil {
-			return ctrl.Result{},  err
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -143,7 +141,6 @@ func (r *MyAppResourceReconciler) createOrUpdateDeployment(
 	err = r.Update(ctx, myApp.AsDeployment())
 	return ctrl.Result{}, err
 }
-
 
 // func (r *MyAppResourceReconciler) createOrUpdateService(
 // 	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
@@ -175,7 +172,6 @@ func (r *MyAppResourceReconciler) createOrUpdateDeployment(
 // 	return ctrl.Result{}, err
 // }
 
-
 // reconcileDelete attempts to delete a myApp resource with a deletion timestamp.
 func (r *MyAppResourceReconciler) reconcileDelete(
 	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
@@ -200,7 +196,6 @@ func (r *MyAppResourceReconciler) reconcileDelete(
 	log.V(1).Info("Deleting Deployment", "deployment", myApp.Name)
 	return ctrl.Result{}, r.Delete(ctx, foundDeployment)
 }
-
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MyAppResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {

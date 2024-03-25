@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -29,6 +30,8 @@ import (
 
 	podinfov1alpha1 "podinfo-operator.com/m/v2/api/v1alpha1"
 )
+
+func ptr[T any](v T) *T { return &v }
 
 var _ = Describe("MyAppResource Controller", func() {
 	Context("When reconciling a resource", func() {
@@ -40,20 +43,35 @@ var _ = Describe("MyAppResource Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		myappresource := &podinfov1alpha1.MyAppResource{}
+
+		myappresource := &podinfov1alpha1.MyAppResource{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      resourceName,
+				Namespace: "default",
+			},
+			Spec: podinfov1alpha1.MyAppResourceSpec{
+				ReplicaCount: ptr(int32(3)),
+				Image: podinfov1alpha1.Image{
+					Repository: "ghcr.io/stefanprodan/podinfo",
+					Tag:        "latest",
+				},
+				Resources: podinfov1alpha1.Resources{
+					CPURequest:  *resource.NewQuantity(100, "m"),
+					MemoryLimit: *resource.NewQuantity(64, "mi"),
+				},
+				UI: podinfov1alpha1.UI{
+					Color:   "#34577c",
+					Message: "some string",
+				},
+				Redis: podinfov1alpha1.Redis{Enabled: true},
+			},
+		}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind MyAppResource")
 			err := k8sClient.Get(ctx, typeNamespacedName, myappresource)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &podinfov1alpha1.MyAppResource{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				Expect(k8sClient.Create(ctx, myappresource)).To(Succeed())
 			}
 		})
 
@@ -66,6 +84,7 @@ var _ = Describe("MyAppResource Controller", func() {
 			By("Cleanup the specific resource instance MyAppResource")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
+
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &MyAppResourceReconciler{
