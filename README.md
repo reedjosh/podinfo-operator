@@ -25,6 +25,18 @@ The above application is deployed as an example on my home server, and the ArgoC
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
 
+- (Optionally) [Install Tilt](https://docs.tilt.dev/install.html)
+
+### Tilt
+
+For installation only, see the `makefile` documentation below. 
+For development, this project can be installed and live updated via Tilt.
+
+Once the above prerequisites are installed `tilt up` should perform the equivalent of the `makefile` steps below; 
+however, it also watches input files for changes and automatically reruns and applies on said changes.
+
+It also provides a nice UI for visualization, control, and 
+
 ### To Deploy on the cluster
 **Build and push your image to the location specified by `IMG`:**
 
@@ -103,7 +115,8 @@ kubectl apply -f https://raw.githubusercontent.com/<org>/podinfo/<tag or branch>
 ```
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+Please fork and file a pull request. As the pipeline is further developed, this process will expand.
 
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
