@@ -33,9 +33,9 @@ For installation only, see the `makefile` documentation below.
 For development, this project can be installed and live updated via Tilt.
 
 Once the above prerequisites are installed `tilt up` should perform the equivalent of the `makefile` steps below; 
-however, it also watches input files for changes and automatically reruns and applies on said changes.
+however, it also watches input files for changes and automatically reruns and applies updates.
 
-It also provides a nice UI for visualization, control, and 
+Tilt also provides a UI for visualization, control, and log viewing. 
 
 ### To Deploy on the cluster
 **Build and push your image to the location specified by `IMG`:**
