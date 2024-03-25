@@ -14,7 +14,7 @@ One can login (`readonlyuser`/`readonlypass`)
 and see this same application deployed via ArgoCD pointing to [podinfo](https://github.com/stefanprodan/podinfo)'s own
 [helm chart](https://github.com/stefanprodan/podinfo/tree/master/charts/podinfo).
 
-The above application is deployed as an example on my home server, and the ArgoCD app in use can be see 
+The above application is deployed as an example on my home server, and the ArgoCD app in use can be seen
 [here](https://git.thereedfamily.rocks/jayr/podinfo-argo/src/branch/main/podinfo.yaml).
 
 ## Getting Started
