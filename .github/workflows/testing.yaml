@@ -36,7 +36,7 @@ jobs:
 
       #  Run tests
       - name: E2E Tests
-        run: make integration-test
+        run: make test-e2e
         env:
           TEST_USE_EXISTING_CLUSTER: "true"
           WATCH_NAMESPACE: ""
