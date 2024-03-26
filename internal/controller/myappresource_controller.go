@@ -130,7 +130,7 @@ func (r *MyAppResourceReconciler) createOrUpdateDeployment(
 	// Deployment found, update it.
 	// TODO (reedjosh) do a nice comparison. Skip update if no diff. Potentially patch instead of update.
 	log.V(1).Info("Updating Deployment", "deployment", myApp.Name)
-	err = r.Update(ctx, myApp)
+	err = r.Update(ctx, buildDeployment(myApp))
 
 	// Requeue until the status goes ready.
 	return ctrl.Result{Requeue: !myApp.Status.Ready}, err
