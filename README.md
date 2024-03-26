@@ -1,9 +1,11 @@
-# podinfo
+# podinfo-operator
 Toy operator that deploys and controls the [podinfo](https://github.com/stefanprodan/podinfo) application.
 
 ## Description
 
 Just a practice Kubernetes Operator pattern built using `kubebuilder`.
+
+### An aside about application deployment.
 
 Operators today should not simply deploy a basic application as there are many other alternatives.
 
@@ -17,6 +19,34 @@ and see this same application deployed via ArgoCD pointing to [podinfo](https://
 The above application is deployed as an example on my home server, and the ArgoCD app in use can be seen
 [here](https://git.thereedfamily.rocks/jayr/podinfo-argo/src/branch/main/podinfo.yaml).
 
+### The podinfo-operator
+
+This operator deploys Redis in the same container as the podinfo application when enabled. A future enhancement would
+deploy a proper Redis cluster.
+
+This operator also deploys a service in front of the `pondinfo` deployment and it should be possible to port forward
+to the service in the same manner as the deployment.
+
+### Manually testing the podinfo-operator
+
+Port forward to the operator.
+``` sh
+kubectl port-forward deployments/myappresource-sample 9898:9898
+```
+
+Verify caching -- the default `myappresource-sample` at [./config/samples/podinfo_v1alpha1_myappresource.yaml]
+enables Redis by default.
+``` sh
+curl -X PUT -d theargument=thevaule  localhost:9898/cache/thekey
+curl -X GET -d thearg=thevalue  localhost:9898/cache/thekey
+theargument=thevaule%
+```
+
+Navigating to `localhost:<forward-port>` should present the podinfo UI. The colors should update via the 
+input to the MyAppResource configuation. Consider switching the default to `#b5bd68`.
+
+
+
 ## Getting Started
 
 ### Prerequisites
@@ -29,11 +59,17 @@ The above application is deployed as an example on my home server, and the ArgoC
 
 ### Tilt
 
-For installation only, see the `makefile` documentation below. 
 For development, this project can be installed and live updated via Tilt.
+For installation only, see the `makefile` documentation below. 
 
 Once the above prerequisites are installed `tilt up` should perform the equivalent of the `makefile` steps below; 
 however, it also watches input files for changes and automatically reruns and applies updates.
+
+Tilt also works better with a cluster local docker registry for a speedup. See the [./hack/kind-with-registry.sh]
+script for how to create a kind cluster with a local docker registry.
+
+If using a real cluster, edit `allow_k8s_contexts(['kind-kind'<, 'other context'>])` to add your
+k8s cluster context to the list Tilt is allowed to operator against.
 
 Tilt also provides a UI for visualization, control, and log viewing. 
 
@@ -138,3 +174,56 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+## Future TODOs and Project Findings
+
+
+``` go
+type patchArrayofStringsValue struct {
+	Op    string   `json:"op"`
+	Path  string   `json:"path"`
+	Value []string `json:"value"`
+}
+type patchStatus struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value podinfov1alpha1.MyAppResourceStatus `json:"value"`
+}
+type patchBool struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value bool `json:"value"`
+}
+type pathces []interface{}
+
+func buildPatch(myApp *podinfov1alpha1.MyAppResource) (client.Patch, error) {
+	patch := []interface{}{
+		patchArrayofStringsValue{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: myApp.GetFinalizers(),
+		},
+		patchStatus{
+			Op:    "add",
+			Path:  "/status",
+			Value: myApp.Status,
+		},
+		patchBool{
+			Op:    "replace",
+			Path:  "/status/ready",
+			Value: true,
+		},
+	}
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return client.RawPatch(types.JSONPatchType, []byte{}), err
+	}
+	return client.RawPatch(types.JSONPatchType, patchBytes), nil
+}
+```
+
+
+Create or update just didn't seem to work.
+``` Go
+controllerutils.CreateOrUpdate
+```
