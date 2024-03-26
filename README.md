@@ -5,6 +5,8 @@ Toy operator that deploys and controls the [podinfo](https://github.com/stefanpr
 
 Just a practice Kubernetes Operator pattern built using `kubebuilder`.
 
+See the [myappresource api](https://doc.crds.dev/github.com/reedjosh/podinfo-operator/podinfo.podinfo.com/MyAppResource/v1alpha1@v0.0.1-alpha)
+
 ### An aside about application deployment.
 
 Operators today should not simply deploy a basic application as there are many other alternatives.
