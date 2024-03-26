@@ -17,7 +17,7 @@ k8s_resource(
         'podinfo-leader-election-rolebinding:rolebinding',
         'podinfo-manager-rolebinding:clusterrolebinding',
         'podinfo-proxy-rolebinding:clusterrolebinding' ],
-    labels=["providerconfigs"], resource_deps=[], pod_readiness = 'ignore')
+    labels=["Podinfo-Operator"], resource_deps=[], pod_readiness = 'ignore')
 
 # Initially build, but also update docker file automagically.
 docker_build(
@@ -32,5 +32,5 @@ local_resource('generate',
                labels=["make"])
 local_resource('manifest', 
                cmd='make manifests', 
-               deps=['./cmd/', 'internal/', './api/v1alpha1/myappresource_types.go'], 
+               deps=['./cmd/', './internal/controller/myappresource_controller.go', './api/v1alpha1/myappresource_types.go'], 
                labels=["make"])
