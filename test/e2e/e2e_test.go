@@ -74,6 +74,7 @@ var _ = Describe("controller", Ordered, func() {
 			By("installing CRDs")
 			cmd = exec.Command("make", "install")
 			_, err = utils.Run(cmd)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 			By("deploying the controller-manager")
 			cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", projectimage))
@@ -114,8 +115,13 @@ var _ = Describe("controller", Ordered, func() {
 				}
 				return nil
 			}
+			By("deploying the sample manifest") 
 			EventuallyWithOffset(1, verifyControllerUp, time.Minute, time.Second).Should(Succeed())
-
+			verifyReconciliation := func() error {
+				// TODO (reedjosh) apply sample manifest here and find results.
+				return nil	
+			}
+			EventuallyWithOffset(1, verifyReconciliation, time.Minute, time.Second).Should(Succeed())
 		})
 	})
 })
