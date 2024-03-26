@@ -29,7 +29,6 @@ import (
 	podinfov1alpha1 "podinfo-operator.com/m/v2/api/v1alpha1"
 )
 
-
 // BuildService builds a service for a podinfo deployment.
 func buildService(myApp *podinfov1alpha1.MyAppResource) *corev1.Service {
 	ownerGVK := schema.GroupVersionKind{
