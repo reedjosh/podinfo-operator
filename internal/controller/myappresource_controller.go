@@ -18,16 +18,16 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	podinfov1alpha1 "podinfo-operator.com/m/v2/api/v1alpha1"
@@ -37,24 +37,6 @@ import (
 type MyAppResourceReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-}
-
-// Service -- near constant.
-func buildService(myApp podinfov1alpha1.MyAppResource) *corev1.Service {
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      myApp.Name,
-			Namespace: "default",
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{Name: "http", Port: 9898, TargetPort: intstr.FromString("http")},
-				{Name: "grpc", Port: 9999, TargetPort: intstr.FromString("grpc")},
-			},
-			Selector: map[string]string{"app.kubernetes.io/name": myApp.Name},
-		},
-	}
-	return svc
 }
 
 // MyAppResources.
@@ -74,16 +56,12 @@ func buildService(myApp podinfov1alpha1.MyAppResource) *corev1.Service {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the MyAppResource object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, retErr error) {
 	log := log.FromContext(ctx)
 
-	// Fetch basic resource.
-	var myApp podinfov1alpha1.MyAppResource
-	if err := r.Get(ctx, req.NamespacedName, &myApp); err != nil {
+	// Fetch input myApp custom resource.
+	myApp := &podinfov1alpha1.MyAppResource{}
+	if err := r.Get(ctx, req.NamespacedName, myApp); err != nil {
 		// Ignore not-found errors, since it can't be fixed by an immediate
 		// requeue (need to wait for a new notification)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -94,27 +72,32 @@ func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if myApp.GetDeletionTimestamp() != nil { // Try to delete.
 		return r.reconcileDelete(ctx, req, myApp)
 	}
+	// otherwise reconcile.
 	return r.reconcile(ctx, req, myApp)
 }
 
 // reconcile attempts to create or update a myApp resource per the desired spec.
 func (r *MyAppResourceReconciler) reconcile(
-	ctx context.Context, req ctrl.Request, myApp podinfov1alpha1.MyAppResource,
+	ctx context.Context, req ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
 ) (ctrl.Result, error) {
+	// Prevent premature deletion without proper cleanup.
+	myApp.Finalizers = []string{}
+	controllerutil.AddFinalizer(myApp, podinfov1alpha1.MyAppResourceFinalizer)
 
 	// Create or Updtate deployment and services as needed.
 	if res, err := r.createOrUpdateDeployment(ctx, req, myApp); err != nil || res.Requeue {
 		return res, err
 	}
-	// if res, err := r.createOrUpdateService(ctx, req, myApp); err != nil || res.Requeue {
-	// 	return res, err
-	// }
+	if err := r.createOrUpdateService(ctx, req, myApp); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
 
+// createOrUpdateDeployment attempts to create or update desired myApp deployment.
 func (r *MyAppResourceReconciler) createOrUpdateDeployment(
-	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
+	ctx context.Context, _ ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
 ) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
@@ -130,51 +113,63 @@ func (r *MyAppResourceReconciler) createOrUpdateDeployment(
 	// Deployment not found, create it.
 	if err != nil {
 		log.V(1).Info("Creating Deployment", "deployment", myApp.Name)
-		if err = r.Create(ctx, myApp.AsDeployment()); err != nil {
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, r.Create(ctx, buildDeployment(myApp))
+	}
+
+	// Deployment found, propagate status.
+	// TODO (reedjosh) build a better status rollup of all resources along with a better watch on said resources.
+	// TODO (reedjosh) patch the status diff instead of the whole object.
+	log.V(1).Info("Replicas count", "found", foundDeployment.Status.ReadyReplicas, "my", *myApp.Spec.ReplicaCount)
+	myApp.Status.Ready = foundDeployment.Status.ReadyReplicas == *myApp.Spec.ReplicaCount
+	// Use defer and named return vars here to guarantee an update to the myApp
+	// resource at the tail end of reconciliation.
+	if err = r.Status().Update(ctx, myApp); err != nil {
+		return ctrl.Result{}, fmt.Errorf("error patching myappresource: %w", err)
 	}
 
 	// Deployment found, update it.
-	// TODO (reedjosh) do a nice comparison and even potentially patch instead of update.
+	// TODO (reedjosh) do a nice comparison. Skip update if no diff. Potentially patch instead of update.
 	log.V(1).Info("Updating Deployment", "deployment", myApp.Name)
-	err = r.Update(ctx, myApp.AsDeployment())
-	return ctrl.Result{}, err
+	err = r.Update(ctx, myApp)
+
+	// Requeue until the status goes ready.
+	return ctrl.Result{Requeue: !myApp.Status.Ready}, err
 }
 
-// func (r *MyAppResourceReconciler) createOrUpdateService(
-// 	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
-// ) (ctrl.Result, error){
-// 	log := log.FromContext(ctx)
-//
-// 	// Fetch existing service...
-// 	foundService := &corev1.Service{}
-// 	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name, Namespace: myApp.Namespace}, foundService)
-//
-// 	// Return if err and not just because the service wasn't found.
-// 	if err != nil && !k8serrs.IsNotFound(err) {
-// 		return ctrl.Result{}, err
-// 	}
-//
-// 	// Service not found, create it.
-// 	svc := buildService(myApp)
-// 	if err != nil {
-// 		log.V(1).Info("Creating Service", "service", myApp.Name)
-// 		if err = r.Create(ctx, svc); err != nil {
-// 			return ctrl.Result{},  err
-// 		}
-// 	}
-//
-// 	// Service found, update it.
-// 	// TODO (reedjosh) do a nice comparison and even potentially patch instead of update.
-// 	log.V(1).Info("Updating Service", "service", svc.Name)
-// 	err = r.Update(ctx, svc)
-// 	return ctrl.Result{}, err
-// }
+// createOrUpdateService attempts to create or update desired myApp service.
+func (r *MyAppResourceReconciler) createOrUpdateService(
+	ctx context.Context, _ ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
+) error {
+	log := log.FromContext(ctx)
+
+	// Fetch existing service...
+	foundService := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name, Namespace: myApp.Namespace}, foundService)
+
+	// Return if err and not just because the service wasn't found.
+	if err != nil && !k8serrs.IsNotFound(err) {
+		return err
+	}
+
+	// Service not found, create it.
+	desiredSvc := buildService(myApp)
+	if err != nil {
+		log.V(1).Info("Creating Service", "service", myApp.Name)
+		if err = r.Create(ctx, desiredSvc); err != nil {
+			return err
+		}
+	}
+
+	// Service found, update it.
+	// TODO (reedjosh) do a nice comparison and even potentially patch instead of update.
+	log.V(1).Info("Updating Service", "service", desiredSvc.Name)
+	err = r.Update(ctx, desiredSvc)
+	return err
+}
 
 // reconcileDelete attempts to delete a myApp resource with a deletion timestamp.
 func (r *MyAppResourceReconciler) reconcileDelete(
-	ctx context.Context, _ ctrl.Request, myApp podinfov1alpha1.MyAppResource,
+	ctx context.Context, _ ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
 ) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
@@ -187,8 +182,9 @@ func (r *MyAppResourceReconciler) reconcileDelete(
 		return ctrl.Result{}, err
 	}
 
-	// Object didn't exist, so do nothing.
+	// Object didn't exist, so we're done here -- pack up our finalizer.
 	if err != nil {
+		controllerutil.RemoveFinalizer(myApp, podinfov1alpha1.MyAppResourceFinalizer)
 		return ctrl.Result{}, nil
 	}
 

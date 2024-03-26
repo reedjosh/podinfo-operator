@@ -124,6 +124,13 @@ spec:
             type: object
           status:
             description: MyAppResourceStatus defines the observed state of MyAppResource
+            properties:
+              ready:
+                description: ready indicates whether the podinfo deployment's ready
+                  replicas is equal to it's requested replicas.
+                type: boolean
+            required:
+            - ready
             type: object
         type: object
     served: true
