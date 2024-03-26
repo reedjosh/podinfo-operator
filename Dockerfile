@@ -30,4 +30,7 @@ WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532
 
+# Make public on GHCR
+LABEL org.opencontainers.image.source="https://github.com/<your-github-username>/<your-repo-name>"
+
 ENTRYPOINT ["/manager"]

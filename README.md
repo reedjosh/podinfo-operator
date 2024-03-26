@@ -46,7 +46,6 @@ Navigating to `localhost:<forward-port>` should present the podinfo UI. The colo
 input to the MyAppResource configuation. Consider switching the default to `#b5bd68`.
 
 
-
 ## Getting Started
 
 ### Prerequisites
@@ -65,7 +64,7 @@ For installation only, see the `makefile` documentation below.
 Once the above prerequisites are installed `tilt up` should perform the equivalent of the `makefile` steps below; 
 however, it also watches input files for changes and automatically reruns and applies updates.
 
-Tilt also works better with a cluster local docker registry for a speedup. See the [./hack/kind-with-registry.sh]
+Tilt also works better with a cluster local docker registry for a speedup. See the `./hack/kind-with-registry.sh`
 script for how to create a kind cluster with a local docker registry.
 
 If using a real cluster, edit `allow_k8s_contexts(['kind-kind'<, 'other context'>])` to add your
@@ -176,6 +175,16 @@ limitations under the License.
 
 ## Future TODOs and Project Findings
 
+### Future tasks
+
+- Make use of owner references. Specifically don't delete if not matching.
+- Deploy Redis as its own deployment with a service for comms -- I really wanted to but just ran out of time.
+- Test suite build out -- right now its unimpressive.
+- Test and Release Pipeline
+
+### Patching instead of Updating
+
+I really wanted to make patching work. It seemed it may be more efficient and was interesting to play with.
 
 ``` go
 type patchArrayofStringsValue struct {
@@ -222,8 +231,15 @@ func buildPatch(myApp *podinfov1alpha1.MyAppResource) (client.Patch, error) {
 }
 ```
 
+But I could not get it to update status.
 
-Create or update just didn't seem to work.
+### controllerutils
+
+Controller utils provides many useful bits. 
+
+I really wanted to use:
 ``` Go
 controllerutils.CreateOrUpdate
 ```
+
+But when used in place of my more basic logic it just didn't seem to function.
