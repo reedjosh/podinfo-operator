@@ -60,7 +60,7 @@ var _ = Describe("controller", Ordered, func() {
 			var err error
 
 			// projectimage stores the name of the image used in the example
-			var projectimage = "example.com/podinfo:v0.0.1"
+			projectimage := "example.com/podinfo:v0.0.1"
 
 			By("building the manager(Operator) image")
 			cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", projectimage))
@@ -115,11 +115,11 @@ var _ = Describe("controller", Ordered, func() {
 				}
 				return nil
 			}
-			By("deploying the sample manifest") 
+			By("deploying the sample manifest")
 			EventuallyWithOffset(1, verifyControllerUp, time.Minute, time.Second).Should(Succeed())
 			verifyReconciliation := func() error {
 				// TODO (reedjosh) apply sample manifest here and find results.
-				return nil	
+				return nil
 			}
 			EventuallyWithOffset(1, verifyReconciliation, time.Minute, time.Second).Should(Succeed())
 		})
