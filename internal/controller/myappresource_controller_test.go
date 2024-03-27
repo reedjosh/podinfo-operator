@@ -115,7 +115,7 @@ var _ = Describe("MyAppResource Controller", func() {
 				BlockOwnerDeletion: ptr(true),
 				Controller:         ptr(true),
 				Kind:               "MyAppResource",
-				Name:               "resourceName",
+				Name:               resourceName,
 				UID:                myappresource.UID,
 			}}
 			Expect(deployment.OwnerReferences[0]).To(Equal(ownerRef))
