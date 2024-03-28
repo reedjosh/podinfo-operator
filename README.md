@@ -52,11 +52,7 @@ Port forward to the operator.
 kubectl port-forward svc/myappresource-sample 9898:9898
 ```
 
-The sample MyAppResource enables Redis.
-
-Verify caching -- the default `myappresource-sample` at 
-[./config/samples/podinfo_v1alpha1_myappresource.yaml](./config/samples/podinfo_v1alpha1_myappresource.yaml)
-enables Redis.
+Verify caching. (The sample MyAppResource enables Redis.)
 ``` sh
 curl -X PUT -d theargument=thevaule  localhost:9898/cache/thekey
 curl -X GET -d thearg=thevalue  localhost:9898/cache/thekey
