@@ -1,5 +1,5 @@
 # podinfo-operator
-Toy operator that deploys and controls the [podinfo](https://github.com/stefanprodan/podinfo) application.
+A toy operator that deploys and controls the [podinfo](https://github.com/stefanprodan/podinfo) application.
 
 ## Description
 
@@ -7,7 +7,9 @@ Just a practice Kubernetes Operator pattern built using `kubebuilder`.
 
 See the [myappresource api](https://doc.crds.dev/github.com/reedjosh/podinfo-operator/podinfo.podinfo.com/MyAppResource/v1alpha1@v0.0.1-alpha)
 
-### An aside about application deployment.
+This operator deploys Podinfo and Redis as a standalone deployment with kubernetes service when Enabled.
+
+### An Aside About Application Deployment
 
 Operators today should not simply deploy a basic application as there are many other alternatives.
 
@@ -18,27 +20,46 @@ One can login (`readonlyuser`/`readonlypass`)
 and see this same application deployed via ArgoCD pointing to [podinfo](https://github.com/stefanprodan/podinfo)'s own
 [helm chart](https://github.com/stefanprodan/podinfo/tree/master/charts/podinfo).
 
+![argocd install](./images/argocd-app.png)
+
 The above application is deployed as an example on my home server, and the ArgoCD app in use can be seen
 [here](https://git.thereedfamily.rocks/jayr/podinfo-argo/src/branch/main/podinfo.yaml).
 
-### The podinfo-operator
+### Installation
 
-This operator deploys Redis as a standalone deployment with service when Enabled.
+The podinfo-operator can be installed by applying the release manifest published here on github. (assuming a working
+kubernetes cluster)
 
-It can be installed by applying the release manifest published here on github.
-```
+``` sh
 curl -Ls https://github.com/reedjosh/podinfo-operator/releases/download/v0.0.1-alpha/install.yaml | kubectl apply -f -
 ```
 
-![manifest inastall](./images/curl-install.png)
+![manifest install](./images/curl-install.png)
 
-Otherwise, a local build and install can be done by either the makefile or `tilt up` as described below.
+Otherwise, a local build and install can be done by either the `makefile` or `tilt up` as described below.
 
 The file 
 
-## Getting Started
+### Manually testing the podinfo-operator
 
-### Prerequisites
+Port forward to the operator.
+``` sh
+kubectl port-forward svc/myappresource-sample 9898:9898
+```
+
+Verify caching -- the default `myappresource-sample` at 
+[./config/samples/podinfo_v1alpha1_myappresource.yaml](./config/samples/podinfo_v1alpha1_myappresource.yaml)
+enables Redis by default.
+``` sh
+curl -X PUT -d theargument=thevaule  localhost:9898/cache/thekey
+curl -X GET -d thearg=thevalue  localhost:9898/cache/thekey
+theargument=thevaule%
+```
+
+Navigating to `localhost:<forward-port>` should present the podinfo UI. The colors should update via the 
+input to the MyAppResource configuation. Consider switching the default to `#b5bd68`.
+
+### Prerequisites for Build and Install
 
 - go version v1.21.0+
 - docker version 17.03+.
@@ -61,25 +82,6 @@ If using a real cluster, edit `allow_k8s_contexts(['kind-kind'<, 'other context'
 k8s cluster context to the list Tilt is allowed to operator against.
 
 Tilt also provides a UI for visualization, control, and log viewing. 
-
-### Manually testing the podinfo-operator
-
-Port forward to the operator.
-``` sh
-kubectl port-forward svc/myappresource-sample 9898:9898
-```
-
-Verify caching -- the default `myappresource-sample` at 
-[./config/samples/podinfo_v1alpha1_myappresource.yaml](./config/samples/podinfo_v1alpha1_myappresource.yaml)
-enables Redis by default.
-``` sh
-curl -X PUT -d theargument=thevaule  localhost:9898/cache/thekey
-curl -X GET -d thearg=thevalue  localhost:9898/cache/thekey
-theargument=thevaule%
-```
-
-Navigating to `localhost:<forward-port>` should present the podinfo UI. The colors should update via the 
-input to the MyAppResource configuation. Consider switching the default to `#b5bd68`.
 
 
 ### To Deploy on the cluster
