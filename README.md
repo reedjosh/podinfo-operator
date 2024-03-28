@@ -1,3 +1,5 @@
+![testing](https://github.com/reedjosh/podinfo-operator/actions/workflows/testing.yaml/badge.svg)
+
 # podinfo-operator
 A toy operator that deploys and controls the [podinfo](https://github.com/stefanprodan/podinfo) application.
 
