@@ -29,6 +29,10 @@ import (
 	podinfov1alpha1 "podinfo-operator.com/m/v2/api/v1alpha1"
 )
 
+const (
+	redisNamePostfix = "-redis"
+)
+
 // BuildService builds a service for a podinfo deployment.
 func buildService(myApp *podinfov1alpha1.MyAppResource) *corev1.Service {
 	ownerGVK := schema.GroupVersionKind{
@@ -64,16 +68,13 @@ func buildDeployment(myApp *podinfov1alpha1.MyAppResource) *appsv1.Deployment {
 	dep := &appsv1.Deployment{}
 
 	// TODO: (reedjosh) use a better labeling scheme.
-	dep.Labels = map[string]string{"app.kubernetes.io/name": myApp.Name}
-	dep.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": myApp.Name}}
-	dep.Spec.Template.Labels = map[string]string{"app.kubernetes.io/name": myApp.Name}
-	dep.Namespace = "default"
 	dep.Name = myApp.Name
+	dep.Namespace = "default"
+	dep.Labels = map[string]string{"app.kubernetes.io/name": myApp.Name}
 	dep.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(myApp, ownerGVK)}
-
+	dep.Spec.Template.Labels = map[string]string{"app.kubernetes.io/name": myApp.Name}
+	dep.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": myApp.Name}}
 	dep.Spec.Replicas = myApp.Spec.ReplicaCount
-
-	// Assumes containers[0] is always popdinfo container and [1] is always redis if existing.
 	dep.Spec.Template.Spec.Containers = []corev1.Container{
 		{
 			Name:  "podinfo",
@@ -96,21 +97,68 @@ func buildDeployment(myApp *podinfov1alpha1.MyAppResource) *appsv1.Deployment {
 
 	// If Redis is enabled, add additional container to deployment and set env var as such.
 	if myApp.Spec.Redis.Enabled {
-		dep.Spec.Template.Spec.Containers = append(dep.Spec.Template.Spec.Containers,
-			corev1.Container{
-				Name:  "redis",
-				Image: "redis:alpine3.19",
-				Resources: corev1.ResourceRequirements{
-					Limits:   corev1.ResourceList{corev1.ResourceMemory: myApp.Spec.Redis.Resources.MemoryLimit},
-					Requests: corev1.ResourceList{corev1.ResourceCPU: myApp.Spec.Redis.Resources.CPURequest},
-				},
-			},
-		)
 		dep.Spec.Template.Spec.Containers[0].Env = append(
 			dep.Spec.Template.Spec.Containers[0].Env,
-			corev1.EnvVar{Name: "PODINFO_CACHE_SERVER", Value: "tcp://localhost:6379"},
+			corev1.EnvVar{
+				Name: "PODINFO_CACHE_SERVER",
+				Value: fmt.Sprintf(
+					"tcp://%s.%s.svc.cluster.local:6379",
+					myApp.Name+redisNamePostfix,
+					myApp.Namespace),
+			},
 		)
 	}
 
+	return dep
+}
+
+// BuildService builds a service for a podinfo deployment.
+func buildRedisService(myApp *podinfov1alpha1.MyAppResource) *corev1.Service {
+	ownerGVK := schema.GroupVersionKind{
+		Group:   "podinfo.podinfo.com",
+		Version: "v1alpha1",
+		Kind:    "MyAppResource",
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            myApp.Name + redisNamePostfix,
+			Namespace:       "default",
+			Labels:          map[string]string{podinfov1alpha1.MyAppResourceLabelName: myApp.Name},
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(myApp, ownerGVK)},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{Name: "redis", Port: 6379, TargetPort: intstr.FromString("redis")},
+			},
+			Selector: map[string]string{"app.kubernetes.io/name": myApp.Name + redisNamePostfix},
+		},
+	}
+	return svc
+}
+
+// BuildDeployment converts a MyAppResourceSpec to a k8s Deployment Spec.
+func buildRedisDeployment(myApp *podinfov1alpha1.MyAppResource) *appsv1.Deployment {
+	ownerGVK := schema.GroupVersionKind{Group: "podinfo.podinfo.com", Version: "v1alpha1", Kind: "MyAppResource"}
+
+	// TODO: (reedjosh) use a better labeling scheme.
+	dep := &appsv1.Deployment{}
+	dep.Name = myApp.Name + redisNamePostfix
+	dep.Namespace = "default"
+	dep.Labels = map[string]string{"app.kubernetes.io/name": myApp.Name}
+	dep.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(myApp, ownerGVK)}
+	dep.Spec.Replicas = myApp.Spec.ReplicaCount
+	dep.Spec.Template.Labels = map[string]string{"app.kubernetes.io/name": myApp.Name + redisNamePostfix}
+	dep.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": myApp.Name + redisNamePostfix}}
+	dep.Spec.Template.Spec.Containers = append(dep.Spec.Template.Spec.Containers,
+		corev1.Container{
+			Name:  "redis",
+			Image: "redis:alpine3.19",
+			Resources: corev1.ResourceRequirements{
+				Limits:   corev1.ResourceList{corev1.ResourceMemory: myApp.Spec.Redis.Resources.MemoryLimit},
+				Requests: corev1.ResourceList{corev1.ResourceCPU: myApp.Spec.Redis.Resources.CPURequest},
+			},
+			Ports: []corev1.ContainerPort{{Name: "redis", ContainerPort: 6379}},
+		},
+	)
 	return dep
 }

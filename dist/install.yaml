@@ -367,16 +367,9 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - services/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ""
-  resources:
   - services/status
   verbs:
   - get
-  - update
 - apiGroups:
   - apps
   resources:
@@ -389,12 +382,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - apps
-  resources:
-  - deployments/finalizers
-  verbs:
-  - update
 - apiGroups:
   - apps
   resources:
@@ -413,12 +400,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - podinfo.podinfo.com
-  resources:
-  - myappresources/finalizers
-  verbs:
-  - update
 - apiGroups:
   - podinfo.podinfo.com
   resources:
