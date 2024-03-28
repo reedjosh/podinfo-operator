@@ -1,6 +1,8 @@
 # podinfo-operator
 A toy operator that deploys and controls the [podinfo](https://github.com/stefanprodan/podinfo) application.
 
+See end of README for future TODOs/Learnings.
+
 ## Description
 
 Just a practice Kubernetes Operator pattern built using `kubebuilder`.
@@ -38,18 +40,21 @@ curl -Ls https://github.com/reedjosh/podinfo-operator/releases/download/v0.0.1-a
 
 Otherwise, a local build and install can be done by either the `makefile` or `tilt up` as described below.
 
-The file 
-
 ### Manually testing the podinfo-operator
+
+Apply the sample `MyAppResource` located here:
+[./config/samples/podinfo_v1alpha1_myappresource.yaml](./config/samples/podinfo_v1alpha1_myappresource.yaml)
 
 Port forward to the operator.
 ``` sh
 kubectl port-forward svc/myappresource-sample 9898:9898
 ```
 
+The sample MyAppResource enables Redis.
+
 Verify caching -- the default `myappresource-sample` at 
 [./config/samples/podinfo_v1alpha1_myappresource.yaml](./config/samples/podinfo_v1alpha1_myappresource.yaml)
-enables Redis by default.
+enables Redis.
 ``` sh
 curl -X PUT -d theargument=thevaule  localhost:9898/cache/thekey
 curl -X GET -d thearg=thevalue  localhost:9898/cache/thekey
@@ -72,11 +77,10 @@ input to the MyAppResource configuation. Consider switching the default to `#b5b
 For development, this project can be installed and live updated via Tilt.
 For installation only, see the `makefile` documentation below. 
 
-
 Once the above prerequisites are installed `tilt up` should perform the equivalent of the `makefile` steps below; 
 however, it also watches input files for changes and automatically reruns and applies updates.
 
-Tilt also works better with a cluster local docker registry for a speedup. See the `./hack/kind-with-registry.sh`
+Tilt also works better with a cluster local docker registry for a speedup. See the [kind-with-registry.sh](./hack/kind-with-registry.sh)
 script for how to create a kind cluster with a local docker registry.
 
 If using a real cluster, edit `allow_k8s_contexts(['kind-kind'<, 'other context'>])` to add your
@@ -86,16 +90,12 @@ Tilt also provides a UI for visualization, control, and log viewing.
 
 ![tilt UI](./images/tilt-up.png)
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+### To Build and Install Via Makefile
+**Build the image**
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/podinfo:tag
+make docker-build
 ```
-
-**NOTE:** This image ought to be published in the personal registry you specified. 
-And it is required to have access to pull the image from the working environment. 
-Make sure you have the proper permission to the registry if the above commands don’t work.
 
 **Install the CRDs into the cluster:**
 
@@ -103,23 +103,21 @@ Make sure you have the proper permission to the registry if the above commands d
 make install
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+**Deploy the Manager**
 
 ```sh
-make deploy IMG=<some-registry>/podinfo:tag
+make deploy
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin 
 privileges or be logged in as admin.
 
-**Create instances of your solution**
+**Create instances `MyAppResource`**
 You can apply the samples (examples) from the config/sample:
 
 ```sh
-kubectl apply -k config/samples/
+kubectl apply -k [./config/samples/podinfo_v1alpha1_myappresource.yaml](./config/samples/podinfo_v1alpha1_myappresource.yaml)
 ```
-
->**NOTE**: Ensure that the samples has default values to test it out.
 
 ### To Uninstall
 **Delete the instances (CRs) from the cluster:**
@@ -145,6 +143,10 @@ make undeploy
 Following are the steps to build the installer and distribute this project to users.
 
 1. Build the installer for the image built and published in the registry:
+
+`IMG` should be `ghcr.io/reedjosh/podinfo-operator:v<releasever>` for publishing releases,
+but this does require a token. 
+TODO(reedjosh) publish via the pipeline on release tag.
 
 ```sh
 make build-installer IMG=<some-registry>/podinfo:tag
@@ -189,16 +191,36 @@ limitations under the License.
 
 ## Future TODOs and Project Findings
 
-### Future tasks
+- Release via pipeline
+- Mutating/Verification webhooks
+- Expand E2E tests
+- Test creating deployments in many namespaces at once.
+- Test creating many deployments in the same namespace.
+- Test that we never delete a resource without an ownership label.
+### Comparison prior to update.
 
-- Make use of owner references. Specifically don't delete if not matching.
-- Deploy Redis as its own deployment with a service for comms -- I really wanted to but just ran out of time.
-- Test suite build out -- right now its unimpressive.
-- Test and Release Pipeline
+Really need to do a comparison before attempting to update any resource to cut down
+on the number of K8s API calls. I have considered `reflect.DeepEqual`, but even
+better would be to use a hard coded comparison (performance wise). Best would probably be
+code generation for equals, but without a bit further research, I'm not sure of an
+easy way to do that.
+
+### controllerutils
+
+Controller utils provides many useful bits. 
+
+I really wanted to use:
+``` Go
+controllerutils.CreateOrUpdate
+```
+
+But when used in place of my more basic logic it just didn't seem to function.
 
 ### Patching instead of Updating
 
-I really wanted to make patching work. It seemed it may be more efficient and was interesting to play with.
+I really wanted to make patching work. It seemed it may be more efficient 
+and was interesting to play with. I got the below to mostly work, but it didn't
+seem to reliably patch the status.
 
 ``` go
 type patchArrayofStringsValue struct {
@@ -245,15 +267,3 @@ func buildPatch(myApp *podinfov1alpha1.MyAppResource) (client.Patch, error) {
 }
 ```
 
-But I could not get it to update status.
-
-### controllerutils
-
-Controller utils provides many useful bits. 
-
-I really wanted to use:
-``` Go
-controllerutils.CreateOrUpdate
-```
-
-But when used in place of my more basic logic it just didn't seem to function.
