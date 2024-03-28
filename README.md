@@ -23,39 +23,20 @@ The above application is deployed as an example on my home server, and the ArgoC
 
 ### The podinfo-operator
 
-This operator deploys Redis in the same container as the podinfo application when enabled. A future enhancement would
-deploy a proper Redis cluster.
+This operator deploys Redis as a standalone deployment with service when Enabled.
 
-This operator also deploys a service in front of the `pondinfo` deployment and it should be possible to port forward
-to the service in the same manner as the deployment.
+It doesn't yet support multiple namespaces.
 
-### Manually testing the podinfo-operator
-
-Port forward to the operator.
-``` sh
-kubectl port-forward deployments/myappresource-sample 9898:9898
-```
-
-Verify caching -- the default `myappresource-sample` at [./config/samples/podinfo_v1alpha1_myappresource.yaml]
-enables Redis by default.
-``` sh
-curl -X PUT -d theargument=thevaule  localhost:9898/cache/thekey
-curl -X GET -d thearg=thevalue  localhost:9898/cache/thekey
-theargument=thevaule%
-```
-
-Navigating to `localhost:<forward-port>` should present the podinfo UI. The colors should update via the 
-input to the MyAppResource configuation. Consider switching the default to `#b5bd68`.
-
+The file 
 
 ## Getting Started
 
 ### Prerequisites
+
 - go version v1.21.0+
 - docker version 17.03+.
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
-
 - (Optionally) [Install Tilt](https://docs.tilt.dev/install.html)
 
 ### Tilt
@@ -73,6 +54,26 @@ If using a real cluster, edit `allow_k8s_contexts(['kind-kind'<, 'other context'
 k8s cluster context to the list Tilt is allowed to operator against.
 
 Tilt also provides a UI for visualization, control, and log viewing. 
+
+### Manually testing the podinfo-operator
+
+Port forward to the operator.
+``` sh
+kubectl port-forward svc/myappresource-sample 9898:9898
+```
+
+Verify caching -- the default `myappresource-sample` at 
+[./config/samples/podinfo_v1alpha1_myappresource.yaml](./config/samples/podinfo_v1alpha1_myappresource.yaml)
+enables Redis by default.
+``` sh
+curl -X PUT -d theargument=thevaule  localhost:9898/cache/thekey
+curl -X GET -d thearg=thevalue  localhost:9898/cache/thekey
+theargument=thevaule%
+```
+
+Navigating to `localhost:<forward-port>` should present the podinfo UI. The colors should update via the 
+input to the MyAppResource configuation. Consider switching the default to `#b5bd68`.
+
 
 ### To Deploy on the cluster
 **Build and push your image to the location specified by `IMG`:**
