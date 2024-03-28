@@ -23,6 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,7 +61,9 @@ func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		// Ignore not-found errors, since it can't be fixed by an immediate requeue (need to wait for a new notification).
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	log.V(1).Info("myApp resource found", "MyAppResource", myApp)
+	log.V(1).Info("myappresource found", "name", myApp.Name)
+	log.V(1).Info("myappresource found", "deletiontimestamp", myApp.DeletionTimestamp)
+	log.V(1).Info("myappresource found", "enabled", myApp.Spec.Redis.Enabled)
 
 	// If deletion timestamp. Do nothing.
 	// If cluster external resources were created, one would need to use a finalizer and perform cleanup in a
@@ -78,20 +81,24 @@ func (r *MyAppResourceReconciler) reconcile(
 	ctx context.Context, req ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
 ) (ctrl.Result, error) {
 	// Create or Updtate deployment and services as needed.
-	if res, err := r.createOrUpdateDeployment(ctx, req, myApp); err != nil || res.Requeue {
-		return res, err
-	}
-	if err := r.createOrUpdateService(ctx, req, myApp); err != nil {
+	if err := r.createOrUpdateDeployment(ctx, req, myApp); err != nil {
+		return ctrl.Result{}, err
+	} else if err = r.createOrUpdateService(ctx, req, myApp); err != nil {
+		return ctrl.Result{}, err
+	} else if err = r.reconcileRedis(ctx, myApp); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	// Requeue until the status goes ready.
+	// TODO (reedjosh) Should do this with watches instead!
+	return ctrl.Result{Requeue: !myApp.Status.Ready}, nil
 }
 
 // createOrUpdateDeployment attempts to create or update desired myApp deployment.
+// TODO (reedjosh) would use ctrl.CreateOrUpdate but cuases test failures.
 func (r *MyAppResourceReconciler) createOrUpdateDeployment(
 	ctx context.Context, _ ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
-) (ctrl.Result, error) {
+) error {
 	log := log.FromContext(ctx)
 
 	// Fetch existing deployment...
@@ -100,41 +107,36 @@ func (r *MyAppResourceReconciler) createOrUpdateDeployment(
 
 	// Return if err and not just because the deployment wasn't found.
 	if err != nil && !k8serrs.IsNotFound(err) {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// Deployment not found, create it.
 	if err != nil {
 		log.V(1).Info("Creating Deployment", "deployment", myApp.Name)
-		return ctrl.Result{}, r.Create(ctx, buildDeployment(myApp))
+		return r.Create(ctx, buildDeployment(myApp))
 	}
 
 	// Deployment found, propagate status.
 	// TODO (reedjosh) build a better status rollup of all resources along with a better watch on said resources.
 	// TODO (reedjosh) patch the status diff instead of the whole object.
-	log.V(1).Info("Replicas count", "found", foundDeployment.Status.ReadyReplicas, "my", *myApp.Spec.ReplicaCount)
 	myApp.Status.Ready = foundDeployment.Status.ReadyReplicas == *myApp.Spec.ReplicaCount
-	// Use defer and named return vars here to guarantee an update to the myApp
-	// resource at the tail end of reconciliation.
 	if err = r.Status().Update(ctx, myApp); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error patching myappresource: %w", err)
+		return fmt.Errorf("error patching myappresource: %w", err)
 	}
 
 	// Deployment found, update it.
 	// TODO (reedjosh) do a nice comparison. Skip update if no diff. Potentially patch instead of update.
 	log.V(1).Info("Updating Deployment", "deployment", myApp.Name)
 	err = r.Update(ctx, buildDeployment(myApp))
-
-	// Requeue until the status goes ready.
-	return ctrl.Result{Requeue: !myApp.Status.Ready}, err
+	return err
 }
 
 // createOrUpdateService attempts to create or update desired myApp service.
+// TODO (reedjosh) would use ctrl.CreateOrUpdate but cuases test failures.
 func (r *MyAppResourceReconciler) createOrUpdateService(
 	ctx context.Context, _ ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
 ) error {
 	log := log.FromContext(ctx)
-
 	// Fetch existing service...
 	foundService := &corev1.Service{}
 	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name, Namespace: myApp.Namespace}, foundService)
@@ -148,9 +150,7 @@ func (r *MyAppResourceReconciler) createOrUpdateService(
 	desiredSvc := buildService(myApp)
 	if err != nil {
 		log.V(1).Info("Creating Service", "service", myApp.Name)
-		if err = r.Create(ctx, desiredSvc); err != nil {
-			return err
-		}
+		return r.Create(ctx, desiredSvc)
 	}
 
 	// Service found, update it.
@@ -165,4 +165,90 @@ func (r *MyAppResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&podinfov1alpha1.MyAppResource{}).
 		Complete(r)
+}
+
+// reconcileRedis calls create update or delete for the redis application.
+func (r *MyAppResourceReconciler) reconcileRedis(ctx context.Context, myApp *podinfov1alpha1.MyAppResource) error {
+	if myApp.Spec.Redis.Enabled {
+		if err := r.createOrUpdateRedisDeployment(ctx, myApp); err != nil {
+			return err
+		}
+		return r.createOrUpdateRedisService(ctx, myApp)
+	}
+	return r.reconcileDeleteRedis(ctx, myApp)
+}
+
+func (r *MyAppResourceReconciler) createOrUpdateRedisService(
+	ctx context.Context, myApp *podinfov1alpha1.MyAppResource,
+) error {
+	log := log.FromContext(ctx)
+	// Fetch existing service...
+	foundService := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name + "-redis", Namespace: myApp.Namespace}, foundService)
+
+	// Return if err and not just because the service wasn't found.
+	if err != nil && !k8serrs.IsNotFound(err) {
+		return err
+	}
+
+	// Service not found, create it.
+	desiredSvc := buildRedisService(myApp)
+	if err != nil {
+		log.V(1).Info("Creating Redis Service", "service", myApp.Name)
+		if err = r.Create(ctx, desiredSvc); err != nil {
+			return err
+		}
+	}
+
+	// Service found, update it.
+	// TODO (reedjosh) do a nice comparison and even potentially patch instead of update.
+	log.V(1).Info("Updating Redis Service", "service", desiredSvc.Name)
+	err = r.Update(ctx, desiredSvc)
+	return err
+}
+
+func (r *MyAppResourceReconciler) createOrUpdateRedisDeployment(
+	ctx context.Context, myApp *podinfov1alpha1.MyAppResource,
+) error {
+	log := log.FromContext(ctx)
+	// Fetch existing deployment...
+	foundDep := &appsv1.Deployment{}
+	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name + redisNamePostfix, Namespace: myApp.Namespace}, foundDep)
+
+	// Return if err and not just because the deployment wasn't found.
+	if err != nil && !k8serrs.IsNotFound(err) {
+		return err
+	}
+
+	// Deployment not found, create it.
+	desiredDep := buildRedisDeployment(myApp)
+	if err != nil {
+		log.V(1).Info("Creating Redis Deployment", "deployment", myApp.Name+redisNamePostfix)
+		if err = r.Create(ctx, desiredDep); err != nil {
+			return err
+		}
+	}
+
+	// Deployment found, update it.
+	// TODO (reedjosh) do a nice comparison and even potentially patch instead of update.
+	log.V(1).Info("Updating Redis Deployment", "name", desiredDep.Name+redisNamePostfix)
+	err = r.Update(ctx, desiredDep)
+	return err
+}
+
+// reconcileDeleteRedis is necesarry to remove the redis deployment on disablement -- not deletion of the myappresource.
+func (r *MyAppResourceReconciler) reconcileDeleteRedis(
+	ctx context.Context, myApp *podinfov1alpha1.MyAppResource,
+) error {
+	log := log.FromContext(ctx)
+	log.V(1).Info("Deleting Redis components")
+	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: myApp.Name + redisNamePostfix, Namespace: myApp.Namespace}}
+	if err := r.Delete(ctx, dep); err != nil && !k8serrs.IsNotFound(err) {
+		return err
+	}
+	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: myApp.Name + redisNamePostfix, Namespace: myApp.Namespace}}
+	if err := r.Delete(ctx, svc); err != nil && !k8serrs.IsNotFound(err) {
+		return err
+	}
+	return nil
 }

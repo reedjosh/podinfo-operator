@@ -37,6 +37,7 @@ type MyAppResourceSpec struct {
 	// UI spec for User Interface options.
 	UI UI `json:"ui,omitempty"`
 
+	// Redis deployment options.
 	Redis Redis `json:"redis,omitempty"`
 
 	// The podinfo deployment resources spec.

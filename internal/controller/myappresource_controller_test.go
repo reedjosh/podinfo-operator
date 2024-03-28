@@ -53,6 +53,10 @@ var _ = Describe("MyAppResource Controller", func() {
 			Name:      resourceName,
 			Namespace: "default",
 		}
+		redisNamespacedName := types.NamespacedName{
+			Name:      resourceName + redisNamePostfix,
+			Namespace: "default",
+		}
 
 		BeforeEach(func() {
 			// Rest the myappresource.
@@ -121,19 +125,33 @@ var _ = Describe("MyAppResource Controller", func() {
 			Expect(deployment.OwnerReferences[0]).To(Equal(ownerRef))
 			Expect(svc.OwnerReferences[0]).To(Equal(ownerRef))
 
-			By("updating the deployment with redis enabled when the myappresource is set to Redis enabled.")
+			By("creating a redis deployment when the myappresource is updated to Redis enabled")
 			myappresource.Spec.Redis.Enabled = true
 			Expect(k8sClient.Update(ctx, myappresource)).To(Succeed())
 			performReconcilation(ctx, namespacedName)
 
-			deployment = &appsv1.Deployment{}
+			redisDep := &appsv1.Deployment{TypeMeta: metav1.TypeMeta{APIVersion: "k8s.io/api/apps/v1", Kind: "Deployment"}}
+			redisSvc := &corev1.Service{}
 			Expect(k8sClient.Get(ctx, namespacedName, deployment)).Should(Succeed())
-			Expect(deployment.Spec.Replicas).To(Equal(myappresource.Spec.ReplicaCount))
+			Expect(k8sClient.Get(ctx, redisNamespacedName, redisSvc)).Should(Succeed())
+			Eventually(k8sClient.Get(ctx, redisNamespacedName, redisDep)).Should(Succeed())
 
-			Expect(deployment.Spec.Template.Spec.Containers[1].Name).To(Equal("redis"))
+			Expect(redisDep.Spec.Template.Spec.Containers[0].Name).To(Equal("redis"))
 			Expect(deployment.Spec.Template.Spec.Containers[0].Env).To(ContainElements(
-				[]corev1.EnvVar{{Name: "PODINFO_CACHE_SERVER", Value: "tcp://localhost:6379"}},
+				[]corev1.EnvVar{{
+					Name:  "PODINFO_CACHE_SERVER",
+					Value: "tcp://" + myappresource.Name + redisNamePostfix + "." + myappresource.Namespace + ".svc.cluster.local:6379",
+				}},
 			))
+
+			By("tearing down the redis deployment when the myappresource is updated back to Redis disabled")
+			Expect(k8sClient.Get(ctx, namespacedName, myappresource)).To(Succeed()) // Needed for UID.
+			myappresource.Spec.Redis.Enabled = false
+			Expect(k8sClient.Update(ctx, myappresource)).To(Succeed())
+			performReconcilation(ctx, namespacedName)
+
+			Expect(k8sClient.Get(ctx, redisNamespacedName, redisSvc)).ShouldNot(Succeed())
+			Eventually(k8sClient.Get(ctx, redisNamespacedName, redisDep)).ShouldNot(Succeed())
 		})
 	})
 })
