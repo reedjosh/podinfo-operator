@@ -1,6 +1,12 @@
 name: Testing
 on:
-  - pull_request
+  - pull_request:
+    branchees:
+      - main
+  - push:
+    branches:
+      - develop
+    workflow_dispatch:
 
 jobs:
   unit-tests:
