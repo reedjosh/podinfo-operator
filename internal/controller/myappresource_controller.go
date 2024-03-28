@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	podinfov1alpha1 "podinfo-operator.com/m/v2/api/v1alpha1"
@@ -42,35 +41,33 @@ type MyAppResourceReconciler struct {
 // MyAppResources.
 //+kubebuilder:rbac:groups=podinfo.podinfo.com,resources=myappresources,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=podinfo.podinfo.com,resources=myappresources/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=podinfo.podinfo.com,resources=myappresources/finalizers,verbs=update
 
 // K8s Deployments.
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get
-//+kubebuilder:rbac:groups=apps,resources=deployments/finalizers,verbs=update
 
 // Services.
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=services/status,verbs=get;update
-//+kubebuilder:rbac:groups="",resources=services/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=services/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, retErr error) {
 	log := log.FromContext(ctx)
-
 	// Fetch input myApp custom resource.
 	myApp := &podinfov1alpha1.MyAppResource{}
 	if err := r.Get(ctx, req.NamespacedName, myApp); err != nil {
-		// Ignore not-found errors, since it can't be fixed by an immediate
-		// requeue (need to wait for a new notification)
+		// Ignore not-found errors, since it can't be fixed by an immediate requeue (need to wait for a new notification).
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	log.V(1).Info("myApp resource found", "MyAppResource", myApp)
 
-	// if deletion timestamp.
-	if myApp.GetDeletionTimestamp() != nil { // Try to delete.
-		return r.reconcileDelete(ctx, req, myApp)
+	// If deletion timestamp. Do nothing.
+	// If cluster external resources were created, one would need to use a finalizer and perform cleanup in a
+	// reconcilDelete function of sorts.
+	// Since everything created here is a k8s construct, just let the owner-refs perform cleanup.
+	if myApp.GetDeletionTimestamp() != nil {
+		return ctrl.Result{}, nil
 	}
 	// otherwise reconcile.
 	return r.reconcile(ctx, req, myApp)
@@ -80,10 +77,6 @@ func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *MyAppResourceReconciler) reconcile(
 	ctx context.Context, req ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
 ) (ctrl.Result, error) {
-	// Prevent premature deletion without proper cleanup.
-	myApp.Finalizers = []string{}
-	controllerutil.AddFinalizer(myApp, podinfov1alpha1.MyAppResourceFinalizer)
-
 	// Create or Updtate deployment and services as needed.
 	if res, err := r.createOrUpdateDeployment(ctx, req, myApp); err != nil || res.Requeue {
 		return res, err
@@ -165,32 +158,6 @@ func (r *MyAppResourceReconciler) createOrUpdateService(
 	log.V(1).Info("Updating Service", "service", desiredSvc.Name)
 	err = r.Update(ctx, desiredSvc)
 	return err
-}
-
-// reconcileDelete attempts to delete a myApp resource with a deletion timestamp.
-func (r *MyAppResourceReconciler) reconcileDelete(
-	ctx context.Context, _ ctrl.Request, myApp *podinfov1alpha1.MyAppResource,
-) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-
-	// Fetch existing deployments if existing...
-	foundDeployment := &appsv1.Deployment{}
-	err := r.Get(ctx, types.NamespacedName{Name: myApp.Name, Namespace: myApp.Namespace}, foundDeployment)
-
-	// Return if err and not just because the deployment wasn't found.
-	if err != nil && !k8serrs.IsNotFound(err) {
-		return ctrl.Result{}, err
-	}
-
-	// Object didn't exist, so we're done here -- pack up our finalizer.
-	if err != nil {
-		controllerutil.RemoveFinalizer(myApp, podinfov1alpha1.MyAppResourceFinalizer)
-		return ctrl.Result{}, nil
-	}
-
-	// Found matching deployment -- delete it.
-	log.V(1).Info("Deleting Deployment", "deployment", myApp.Name)
-	return ctrl.Result{}, r.Delete(ctx, foundDeployment)
 }
 
 // SetupWithManager sets up the controller with the Manager.
