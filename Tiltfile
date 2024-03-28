@@ -20,10 +20,7 @@ k8s_resource(
     labels=["Podinfo-Operator"], resource_deps=[], pod_readiness = 'ignore')
 
 # Initially build, but also update docker file automagically.
-docker_build(
-    'controller',
-    context='.',
-)
+docker_build('controller', context='.')
 
 # Rebuild manifest and generate on updates.
 local_resource('generate', 
