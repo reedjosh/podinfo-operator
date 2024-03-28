@@ -33,7 +33,7 @@ const (
 	redisNamePostfix = "-redis"
 )
 
-// BuildService builds a service for a podinfo deployment.
+// buildService builds a service for a podinfo deployment.
 func buildService(myApp *podinfov1alpha1.MyAppResource) *corev1.Service {
 	ownerGVK := schema.GroupVersionKind{
 		Group:   "podinfo.podinfo.com",
@@ -58,7 +58,7 @@ func buildService(myApp *podinfov1alpha1.MyAppResource) *corev1.Service {
 	return svc
 }
 
-// BuildDeployment converts a MyAppResourceSpec to a k8s Deployment Spec.
+// buildDeployment converts a MyAppResourceSpec to a k8s Deployment Spec.
 func buildDeployment(myApp *podinfov1alpha1.MyAppResource) *appsv1.Deployment {
 	ownerGVK := schema.GroupVersionKind{
 		Group:   "podinfo.podinfo.com",
@@ -95,7 +95,7 @@ func buildDeployment(myApp *podinfov1alpha1.MyAppResource) *appsv1.Deployment {
 		},
 	}
 
-	// If Redis is enabled, add additional container to deployment and set env var as such.
+	// If Redis is enabled, set env var as such.
 	if myApp.Spec.Redis.Enabled {
 		dep.Spec.Template.Spec.Containers[0].Env = append(
 			dep.Spec.Template.Spec.Containers[0].Env,
@@ -112,7 +112,7 @@ func buildDeployment(myApp *podinfov1alpha1.MyAppResource) *appsv1.Deployment {
 	return dep
 }
 
-// BuildService builds a service for a podinfo deployment.
+// buildService builds a service for a podinfo deployment.
 func buildRedisService(myApp *podinfov1alpha1.MyAppResource) *corev1.Service {
 	ownerGVK := schema.GroupVersionKind{
 		Group:   "podinfo.podinfo.com",
@@ -136,7 +136,7 @@ func buildRedisService(myApp *podinfov1alpha1.MyAppResource) *corev1.Service {
 	return svc
 }
 
-// BuildDeployment converts a MyAppResourceSpec to a k8s Deployment Spec.
+// buildRedisDeployment converts a MyAppResourceSpec to a k8s Deployment Spec.
 func buildRedisDeployment(myApp *podinfov1alpha1.MyAppResource) *appsv1.Deployment {
 	ownerGVK := schema.GroupVersionKind{Group: "podinfo.podinfo.com", Version: "v1alpha1", Kind: "MyAppResource"}
 
