@@ -72,6 +72,7 @@ input to the MyAppResource configuation. Consider switching the default to `#b5b
 For development, this project can be installed and live updated via Tilt.
 For installation only, see the `makefile` documentation below. 
 
+
 Once the above prerequisites are installed `tilt up` should perform the equivalent of the `makefile` steps below; 
 however, it also watches input files for changes and automatically reruns and applies updates.
 
@@ -83,6 +84,7 @@ k8s cluster context to the list Tilt is allowed to operator against.
 
 Tilt also provides a UI for visualization, control, and log viewing. 
 
+![tilt UI](./images/tilt-up.png)
 
 ### To Deploy on the cluster
 **Build and push your image to the location specified by `IMG`:**
