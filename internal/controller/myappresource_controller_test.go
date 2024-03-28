@@ -110,14 +110,14 @@ var _ = Describe("MyAppResource Controller", func() {
 
 			By("ensuring owner-refs are set on each created resource to ensure cleanup")
 			Expect(k8sClient.Get(ctx, namespacedName, myappresource)).To(Succeed()) // Needed for UID.
-			ownerRef := []metav1.OwnerReference{{
+			ownerRef := metav1.OwnerReference{
 				APIVersion:         "podinfo.podinfo.com/v1alpha1",
 				BlockOwnerDeletion: ptr(true),
 				Controller:         ptr(true),
 				Kind:               "MyAppResource",
 				Name:               resourceName,
 				UID:                myappresource.UID,
-			}}
+			}
 			Expect(deployment.OwnerReferences[0]).To(Equal(ownerRef))
 			Expect(svc.OwnerReferences[0]).To(Equal(ownerRef))
 
