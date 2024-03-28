@@ -62,8 +62,6 @@ func (r *MyAppResourceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	log.V(1).Info("myappresource found", "name", myApp.Name)
-	log.V(1).Info("myappresource found", "deletiontimestamp", myApp.DeletionTimestamp)
-	log.V(1).Info("myappresource found", "enabled", myApp.Spec.Redis.Enabled)
 
 	// If deletion timestamp. Do nothing.
 	// If cluster external resources were created, one would need to use a finalizer and perform cleanup in a
