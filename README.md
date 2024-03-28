@@ -25,7 +25,14 @@ The above application is deployed as an example on my home server, and the ArgoC
 
 This operator deploys Redis as a standalone deployment with service when Enabled.
 
-It doesn't yet support multiple namespaces.
+It can be installed by applying the release manifest published here on github.
+```
+curl -Ls https://github.com/reedjosh/podinfo-operator/releases/download/v0.0.1-alpha/install.yaml | kubectl apply -f -
+```
+
+![manifest inastall](./images/curl-install.png)
+
+Otherwise, a local build and install can be done by either the makefile or `tilt up` as described below.
 
 The file 
 
