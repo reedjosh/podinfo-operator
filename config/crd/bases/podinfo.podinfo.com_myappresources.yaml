@@ -52,6 +52,7 @@ spec:
                 - tag
                 type: object
               redis:
+                description: Redis deployment options.
                 properties:
                   enabled:
                     description: Enable or disable redis usage.
